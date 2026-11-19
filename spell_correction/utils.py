@@ -1,103 +1,104 @@
-import hazm
+"""Text utilities and the Persian homophone table."""
+
+from __future__ import annotations
+
 import re
+from pathlib import Path
+from typing import Literal, overload
+
+import hazm
+
+HOMOPHONES: tuple[tuple[str, str], ...] = (
+    ("خار", "خوار"),
+    ("سد", "صد"),
+    ("خیش", "خویش"),
+    ("خاست", "خواست"),
+    ("ثواب", "صواب"),
+    ("قاضی", "غازی"),
+    ("علم", "الم"),
+    ("غریب", "قریب"),
+    ("غالب", "قالب"),
+    ("پرتغال", "پرتقال"),
+    ("غدیر", "قدیر"),
+    ("حول", "هول"),
+    ("اساس", "اثاث"),
+    ("اسم", "اثم"),
+    ("عمل", "امل"),
+    ("امارت", "عمارت"),
+    ("حیات", "حیاط"),
+    ("سیف", "صیف"),
+    ("خان", "خوان"),
+    ("سفر", "صفر"),
+    ("عرض", "ارز"),
+    ("ارض", "ارز"),
+    ("ارض", "عرض"),
+    ("راضی", "رازی"),
+    ("آقا", "آغا"),
+    ("غذا", "قضا"),
+    ("خرد", "خورد"),
+    ("هضم", "حزم"),
+    ("تهدید", "تحدید"),
+    ("حوزه", "حوضه"),
+    ("قدر", "غدر"),
+    ("صر", "سر"),
+)
+
+# Backwards-compatible alias (the table used to be a mutable list named ``homophones``).
+homophones = [list(pair) for pair in HOMOPHONES]
+
+_PUNCTUATION_RE = re.compile(r"[^\w\s]")
 
 
-homophones = [
-    ["خار", "خوار"],
-    ["سد", "صد"],
-    ["خیش", "خویش"],
-    ["خاست", "خواست"],
-    ["ثواب", "صواب"],
-    ["قاضی", "غازی"],
-    ["علم", "الم"],
-    ["غریب", "قریب"],
-    ["غالب", "قالب"],
-    ["پرتغال", "پرتقال"],
-    ["غدیر", "قدیر"],
-    ["حول", "هول"],
-    ["اساس", "اثاث"],
-    ["اسم", "اثم"],
-    ["عمل", "امل"],
-    ["امارت", "عمارت"],
-    ["حیات", "حیاط"],
-    ["سیف", "صیف"],
-    ["خان", "خوان"],
-    ["سفر", "صفر"],
-    ["عرض", "ارز"],
-    ["ارض", "ارز"],
-    ["ارض", "عرض"],
-    ["راضی", "رازی"],
-    ["آقا", "آغا"],
-    ["غذا", "قضا"],
-    ["خرد", "خورد"],
-    ["هضم", "حزم"],
-    ["تهدید", "تحدید"],
-    ["حوزه", "حوضه"],
-    ["قدر", "غدر"],
-    ["صر", "سر"],
-]
+def load_data(file_path: str | Path) -> str:
+    """Read a UTF-8 text file and return its content."""
+    return Path(file_path).read_text(encoding="utf-8")
 
 
-def load_data(file_path):
-    return open(file_path).read()
+def find_homophones(word: str) -> list[str]:
+    """Return every homophone of ``word`` (in table order, without duplicates)."""
+    result: list[str] = []
+    for first, second in HOMOPHONES:
+        other = second if word == first else first if word == second else None
+        if other is not None and other not in result:
+            result.append(other)
+    return result
 
 
-def find_homophone_pair(word):
-    """
-    Finds the homophone of a given word if it exists in the homophones list.
-    :param word: The input word to search for.
-    :return: The homophone of the given word if found, otherwise None.
-    """
-    for pair in homophones:
-        if word in pair:
-            new_pair = [*pair]
-            new_pair.remove(word)
-            return new_pair[0]
-    return None
+def find_homophone_pair(word: str) -> str | None:
+    """Return the first homophone of ``word`` or ``None`` if it has none."""
+    matches = find_homophones(word)
+    return matches[0] if matches else None
 
 
-def get_homophone_list():
-    """
-    Generates a flat list of all homophones from the homophones list.
-    :return: A list containing all words from homophone pairs.
-    """
-    return [
-        word for pair in homophones for word in pair
-    ]  # Flatten the list of homophone pairs
+def get_homophone_list() -> list[str]:
+    """Return a flat list of every word that appears in the homophone table."""
+    return [word for pair in HOMOPHONES for word in pair]
 
 
 class CleanText:
+    """Normalize, strip punctuation from, and tokenize Persian text with Hazm."""
+
     def __init__(self) -> None:
-        """
-        Initializes the clean_text class by defining a normalizer and a tokenizer
-        using the Hazm library.
-        """
         self.normalizer = hazm.Normalizer()
         self.tokenizer = hazm.WordTokenizer()
 
-    def clean_text(self, text: str, output="word") -> str:
-        """
-        Cleans and tokenizes the input text using the Hazm library.
+    @overload
+    def clean_text(self, text: str, output: Literal["word"] = ...) -> list[str]: ...
 
-        Steps performed:
-        1. Normalizes the text to standardize characters and format.
-        2. Removes punctuation from the text.
-        3. Tokenizes the text into words or a single string.
+    @overload
+    def clean_text(self, text: str, output: Literal["sentence"]) -> str: ...
+
+    def clean_text(self, text: str, output: str = "word") -> list[str] | str:
+        """Clean and tokenize ``text``.
 
         Args:
-            text (str): The input text to be processed.
-            output (str): Specifies the format of the output.
-                          'word' (default) returns a list of words.
-                          'sentence' returns the tokenized text as a single string.
-
-        Returns:
-            str: A list of tokenized words (if output='word')
-                 or a single tokenized sentence (if output='sentence').
+            text: The input text.
+            output: ``"word"`` (default) returns a list of tokens,
+                ``"sentence"`` returns the tokens joined by single spaces.
         """
         normalized_text = self.normalizer.normalize(text)
-        punc_removed = re.sub(r"[^\w\s]", "", normalized_text)
-        cleaned_text = self.tokenizer.tokenize(punc_removed)
+        punc_removed = _PUNCTUATION_RE.sub("", normalized_text)
+        tokens = self.tokenizer.tokenize(punc_removed)
         if output == "word":
-            return cleaned_text
-        else:
-            return " ".join(cleaned_text)
+            return tokens
+        return " ".join(tokens)

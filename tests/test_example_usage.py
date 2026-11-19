@@ -1,19 +1,25 @@
-# tests/test_example_usage.py
-import os
-import sys
+"""End-to-end tests with the real corpus and ParsBERT (slow, downloads the model)."""
 
-# Ensure repo root is on sys.path (so `Spell_correction.py` is importable)
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if ROOT not in sys.path:
-    sys.path.insert(0, ROOT)
+from __future__ import annotations
 
-# Prefer the top-level module; fall back to package path if you refactor later
-try:
-    from Spell_correction import correct_spelling
-except ModuleNotFoundError:
-    from spell_correction.correct_spelling import correct_spelling  # if moved later
+import pytest
+
+pytestmark = pytest.mark.integration
 
 
-def test_example_usage_exact_output():
-    model = correct_spelling()
-    assert model.get_correct_text("من صفر کردم") == "من سفر کردم"
+@pytest.fixture(scope="module")
+def corrector():
+    from spell_correction import SpellCorrector
+
+    return SpellCorrector()
+
+
+@pytest.mark.parametrize(
+    ("sentence", "expected"),
+    [
+        ("من صفر کردم", "من سفر کردم"),
+        ("من سفر کردم", "من سفر کردم"),
+    ],
+)
+def test_end_to_end(corrector, sentence, expected):
+    assert corrector.correct(sentence) == expected
