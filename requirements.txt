@@ -1,4 +1,6 @@
+# Runtime dependencies (pinned for reproducibility).
+# For a CPU-only install of PyTorch, run first:
+#   pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
 torch==2.7.1
 transformers==4.57.0
 hazm==0.10.0
-pytest==8.4.1
